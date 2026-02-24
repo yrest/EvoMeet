@@ -12,20 +12,23 @@ const ICE_CONFIG = {
   iceTransportPolicy: 'relay'   // Force TURN relay — guarantees 443-only TCP
 };
 
-const WS_URL = `wss://call.personahub.app/ws`;
+const WS_URL = 'wss://call.personahub.app/ws';
 const ROOM   = 'default';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let localStream   = null;
-let ws            = null;
-let myPeerId      = null;
+let localStream    = null;
+let ws             = null;
+let myPeerId       = null;
 let reconnectTimer = null;
 let reconnectDelay = 1000;
-let audioMuted    = false;
-let videoMuted    = false;
+let audioMuted     = false;
+let videoMuted     = false;
 
 // peers: Map<peerId, RTCPeerConnection>
 const peers = new Map();
+
+// ICE candidates that arrived before setRemoteDescription — keyed by peerId
+const iceQueue = new Map();
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
 const joinScreen   = document.getElementById('join-screen');
@@ -89,19 +92,16 @@ function connectSignaling() {
   });
 
   ws.addEventListener('error', () => {
-    // close event will fire next and handle reconnect
+    // close event fires next and handles reconnect
   });
 }
 
 function scheduleReconnect() {
   clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(() => {
-    // Close dead connections to all peers on reconnect
-    for (const [id, pc] of peers) {
-      pc.close();
-      removePeerVideo(id);
-    }
+    for (const [id, pc] of peers) { pc.close(); removePeerVideo(id); }
     peers.clear();
+    iceQueue.clear();
     connectSignaling();
   }, reconnectDelay);
   reconnectDelay = Math.min(reconnectDelay * 2, 30_000);
@@ -111,8 +111,7 @@ async function handleSignal(msg) {
   switch (msg.type) {
     case 'joined':
       myPeerId = msg.peerId;
-      setStatus('connected', `Connected · ${msg.peers.length} others`);
-      // Create offers for all existing peers
+      setStatus('connected', `Connected · ${msg.peers.length} in call`);
       for (const peerId of msg.peers) {
         await createOffer(peerId);
       }
@@ -120,7 +119,8 @@ async function handleSignal(msg) {
       break;
 
     case 'peer-joined':
-      // They will send us an offer; nothing to do yet
+      // Joining peer will send us an offer — just update the waiting message
+      setStatus('connected', `Connected · ${peers.size + 1} in call`);
       updateWaiting();
       break;
 
@@ -131,24 +131,39 @@ async function handleSignal(msg) {
 
     case 'answer':
       if (peers.has(msg.from)) {
-        await peers.get(msg.from).setRemoteDescription(msg.sdp);
+        const pc = peers.get(msg.from);
+        await pc.setRemoteDescription(msg.sdp);
+        await drainIceQueue(msg.from, pc);
       }
       break;
 
     case 'ice-candidate':
-      if (peers.has(msg.from) && msg.candidate) {
-        try {
-          await peers.get(msg.from).addIceCandidate(msg.candidate);
-        } catch {
-          // Benign — candidate arrived before remote desc in some timing scenarios
+      if (!msg.candidate) break;
+      if (peers.has(msg.from)) {
+        const pc = peers.get(msg.from);
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(msg.candidate).catch(() => {});
+        } else {
+          // Queue until remote description is set
+          if (!iceQueue.has(msg.from)) iceQueue.set(msg.from, []);
+          iceQueue.get(msg.from).push(msg.candidate);
         }
       }
       break;
 
     case 'peer-left':
       closePeer(msg.peerId);
+      setStatus('connected', `Connected · ${peers.size} in call`);
       updateWaiting();
       break;
+  }
+}
+
+async function drainIceQueue(peerId, pc) {
+  const queued = iceQueue.get(peerId) || [];
+  iceQueue.delete(peerId);
+  for (const candidate of queued) {
+    await pc.addIceCandidate(candidate).catch(() => {});
   }
 }
 
@@ -157,25 +172,31 @@ function createPeerConnection(peerId) {
   const pc = new RTCPeerConnection(ICE_CONFIG);
   peers.set(peerId, pc);
 
-  // Add local tracks
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
 
-  // Trickle ICE
   pc.addEventListener('icecandidate', ({ candidate }) => {
-    if (candidate) {
-      wsSend({ type: 'ice-candidate', target: peerId, candidate });
-    }
+    if (candidate) wsSend({ type: 'ice-candidate', target: peerId, candidate });
   });
 
-  // Remote track → video tile
-  pc.addEventListener('track', ({ streams }) => {
-    if (streams[0]) addPeerVideo(peerId, streams[0]);
+  // track event: streams[0] is set when addTrack was called with a stream.
+  // Guard against the rare case where streams is empty by building a stream.
+  pc.addEventListener('track', (evt) => {
+    const stream = evt.streams[0] ?? (() => {
+      const s = new MediaStream();
+      s.addTrack(evt.track);
+      return s;
+    })();
+    addPeerVideo(peerId, stream);
   });
 
   pc.addEventListener('connectionstatechange', () => {
-    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+    if (pc.connectionState === 'failed') {
+      // Try ICE restart before giving up
+      if (peers.get(peerId) === pc) pc.restartIce();
+    }
+    if (pc.connectionState === 'closed') {
       closePeer(peerId);
     }
   });
@@ -194,16 +215,15 @@ async function handleOffer(peerId, sdp) {
   if (peers.has(peerId)) peers.get(peerId).close();
   const pc = createPeerConnection(peerId);
   await pc.setRemoteDescription(sdp);
+  await drainIceQueue(peerId, pc);
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
   wsSend({ type: 'answer', target: peerId, sdp: pc.localDescription });
 }
 
 function closePeer(peerId) {
-  if (peers.has(peerId)) {
-    peers.get(peerId).close();
-    peers.delete(peerId);
-  }
+  if (peers.has(peerId)) { peers.get(peerId).close(); peers.delete(peerId); }
+  iceQueue.delete(peerId);
   removePeerVideo(peerId);
 }
 
@@ -252,18 +272,14 @@ function updateWaiting() {
 // ── Controls ──────────────────────────────────────────────────────────────────
 function toggleAudio() {
   audioMuted = !audioMuted;
-  for (const track of localStream.getAudioTracks()) {
-    track.enabled = !audioMuted;
-  }
+  for (const track of localStream.getAudioTracks()) track.enabled = !audioMuted;
   btnMuteAudio.classList.toggle('active', audioMuted);
   btnMuteAudio.textContent = audioMuted ? '🔇' : '🎤';
 }
 
 function toggleVideo() {
   videoMuted = !videoMuted;
-  for (const track of localStream.getVideoTracks()) {
-    track.enabled = !videoMuted;
-  }
+  for (const track of localStream.getVideoTracks()) track.enabled = !videoMuted;
   btnMuteVideo.classList.toggle('active', videoMuted);
   btnMuteVideo.textContent = videoMuted ? '🚫' : '📷';
   document.getElementById('local-pip').classList.toggle('muted-video', videoMuted);
@@ -272,44 +288,33 @@ function toggleVideo() {
 function leaveCall() {
   clearTimeout(reconnectTimer);
   wsSend({ type: 'leave' });
-  ws && ws.close();
-  ws = null;
+  if (ws) { ws.close(); ws = null; }
 
-  for (const [id, pc] of peers) {
-    pc.close();
-    removePeerVideo(id);
-  }
+  for (const [id, pc] of peers) { pc.close(); removePeerVideo(id); }
   peers.clear();
+  iceQueue.clear();
 
-  if (localStream) {
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-  }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   localVideo.srcObject = null;
 
   callScreen.classList.remove('active');
   joinScreen.classList.remove('hidden');
   btnJoin.disabled = false;
   errorMsg.textContent = '';
-  audioMuted = false;
-  videoMuted = false;
-  btnMuteAudio.classList.remove('active');
-  btnMuteVideo.classList.remove('active');
-  btnMuteAudio.textContent = '🎤';
-  btnMuteVideo.textContent = '📷';
+  audioMuted = false; videoMuted = false;
+  btnMuteAudio.classList.remove('active'); btnMuteVideo.classList.remove('active');
+  btnMuteAudio.textContent = '🎤'; btnMuteVideo.textContent = '📷';
   updateGridLayout();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function wsSend(msg) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg));
-  }
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
 function setStatus(state, text) {
   statusDot.className = `status-dot ${state}`;
-  statusText.textContent = text || { connecting: 'Connecting…', connected: 'Connected', error: 'Connection error' }[state];
+  statusText.textContent = text ?? { connecting: 'Connecting…', connected: 'Connected', error: 'Connection error' }[state];
 }
 
 function mediaErrorMessage(err) {

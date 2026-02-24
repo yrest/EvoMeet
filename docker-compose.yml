@@ -1,15 +1,17 @@
 services:
   nginx:
-    build: ./nginx
+    image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./web:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - signaling
-      - coturn
     restart: unless-stopped
     networks:
       - internal
@@ -22,18 +24,18 @@ services:
     networks:
       - internal
 
+  # coturn runs on the HOST network so relay sockets bind directly to the
+  # public IP (20.233.97.125). Docker bridge mode would break relay because
+  # hairpin packets to 20.233.97.125:PORT_X are dropped by Docker NAT.
   coturn:
     image: coturn/coturn:latest
     user: "0"
-    expose:
-      - "5349"
+    network_mode: host
     volumes:
       - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     command: ["-c", "/etc/turnserver.conf"]
     restart: unless-stopped
-    networks:
-      - internal
 
 networks:
   internal:
