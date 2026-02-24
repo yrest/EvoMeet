@@ -134,7 +134,7 @@
       connected:    'Po\u0142\u0105czono',
       connError:    'B\u0142\u0105d po\u0142\u0105czenia',
       inCall:       n => `Po\u0142\u0105czono \u00b7 ${n} na rozmowie`,
-      leave:        'Wyj\u015bd\u017a',
+      leave:        'Wyj\u0064\u017a',
       muteAudio:    'Wycisz mikrofon',
       muteVideo:    'Wy\u0142\u0105cz kamer\u0119',
       leaveCall:    'Opu\u015b\u0107 rozmow\u0119',
