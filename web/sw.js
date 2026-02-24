@@ -1,5 +1,5 @@
-const CACHE = 'evomeet-v2';
-const SHELL = ['/', '/style.css', '/app.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'evomeet-v3';
+const SHELL = ['/', '/style.css', '/i18n.js', '/app.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));

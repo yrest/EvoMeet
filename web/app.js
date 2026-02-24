@@ -86,7 +86,7 @@ function connectSignaling() {
 
   ws.addEventListener('close', () => {
     if (callScreen.classList.contains('active')) {
-      setStatus('connecting', 'Reconnecting…');
+      setStatus('connecting', t('reconnecting'));
       scheduleReconnect();
     }
   });
@@ -111,7 +111,7 @@ async function handleSignal(msg) {
   switch (msg.type) {
     case 'joined':
       myPeerId = msg.peerId;
-      setStatus('connected', `Connected · ${msg.peers.length} in call`);
+      setStatus('connected', t('inCall', msg.peers.length));
       for (const peerId of msg.peers) {
         await createOffer(peerId);
       }
@@ -120,7 +120,7 @@ async function handleSignal(msg) {
 
     case 'peer-joined':
       // Joining peer will send us an offer — just update the waiting message
-      setStatus('connected', `Connected · ${peers.size + 1} in call`);
+      setStatus('connected', t('inCall', peers.size + 1));
       updateWaiting();
       break;
 
@@ -153,7 +153,7 @@ async function handleSignal(msg) {
 
     case 'peer-left':
       closePeer(msg.peerId);
-      setStatus('connected', `Connected · ${peers.size} in call`);
+      setStatus('connected', t('inCall', peers.size));
       updateWaiting();
       break;
   }
@@ -317,14 +317,14 @@ function wsSend(msg) {
 
 function setStatus(state, text) {
   statusDot.className = `status-dot ${state}`;
-  statusText.textContent = text ?? { connecting: 'Connecting…', connected: 'Connected', error: 'Connection error' }[state];
+  statusText.textContent = text ?? { connecting: t('connecting'), connected: t('connected'), error: t('connError') }[state];
 }
 
 function mediaErrorMessage(err) {
   switch (err.name) {
-    case 'NotAllowedError':  return 'Camera/mic permission required to join.';
-    case 'NotFoundError':    return 'No camera or microphone found on this device.';
-    case 'NotReadableError': return 'Camera/mic is in use by another app.';
-    default:                 return `Could not access camera/mic: ${err.message}`;
+    case 'NotAllowedError':  return t('errPermission');
+    case 'NotFoundError':    return t('errNotFound');
+    case 'NotReadableError': return t('errInUse');
+    default:                 return t('errGeneric', err.message);
   }
 }
