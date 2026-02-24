@@ -178,10 +178,10 @@ html, body {
 
 #waiting-msg.hidden { display: none; }
 
-/* Local video PiP — sits above the controls bar including iOS safe area */
+/* Local video PiP — sits above the floating controls bar */
 #local-pip {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px)); right: 16px;
+  bottom: calc(76px + 1.5rem + env(safe-area-inset-bottom, 0px)); right: 16px;
   width: 140px; height: 100px;
   border-radius: 10px;
   overflow: hidden;
@@ -197,16 +197,25 @@ html, body {
   transform: scaleX(-1);
 }
 
-/* Controls bar — padding-bottom accounts for iOS home bar */
+/* Controls bar — floating pill over the video grid */
 #controls {
+  position: fixed;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  padding: 0.75rem 1rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  background: var(--surface);
-  border-top: 1px solid var(--surface2);
+  padding: 0.75rem 1.5rem;
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  white-space: nowrap;
 }
 
 .ctrl-btn {
@@ -240,7 +249,8 @@ html, body {
 
 /* Responsive */
 @media (max-width: 600px) {
-  #local-pip { width: 100px; height: 72px; bottom: 72px; right: 8px; }
+  #local-pip { width: 100px; height: 72px; bottom: calc(68px + 1.5rem + env(safe-area-inset-bottom, 0px)); right: 8px; }
+  #controls { gap: 0.75rem; padding: 0.6rem 1.2rem; }
   .ctrl-btn { width: 44px; height: 44px; font-size: 1.1rem; }
   #btn-leave { padding: 0 1rem; }
   .logo { font-size: 2rem; }
