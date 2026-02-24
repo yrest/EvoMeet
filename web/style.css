@@ -282,6 +282,55 @@ html, body {
 }
 #btn-leave:hover { background: var(--danger-hover); }
 
+/* ── Stats overlay (` to toggle) ─────────────────── */
+#stats-overlay {
+  position: fixed;
+  top: calc(2.5rem + 0.5rem);   /* clears the status bar */
+  left: 0.75rem;
+  z-index: 250;
+  background: rgba(10, 10, 20, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.68rem;
+  color: var(--text);
+  min-width: 240px;
+  max-height: 70vh;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+#stats-overlay.hidden { display: none; }
+
+/* Per-peer section */
+.sp + .sp {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.sp-id {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.15rem;
+}
+
+/* Stat row */
+.sr { display: flex; flex-wrap: wrap; gap: 0.15rem 0.4rem; margin-bottom: 0.05rem; }
+
+.sk { color: var(--text-muted); }   /* key  */
+.sv { color: var(--text); }         /* value */
+
+/* Colour-coded thresholds */
+.sv.good { color: #4ecca3; }        /* RTT <100ms  |  loss <1%  |  jitter <30ms  */
+.sv.warn { color: #f39c12; }        /* RTT <300ms  |  loss <3%  |  jitter <100ms */
+.sv.bad  { color: #e74c3c; }        /* RTT ≥300ms  |  loss ≥3%  |  jitter ≥100ms */
+
+.stats-empty { color: var(--text-muted); text-align: center; padding: 0.25rem; }
+
 /* Responsive */
 @media (max-width: 600px) {
   #local-pip { width: 100px; height: 72px; bottom: calc(68px + 1.5rem + env(safe-area-inset-bottom, 0px)); right: 8px; }
