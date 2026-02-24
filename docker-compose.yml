@@ -1,0 +1,40 @@
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - signaling
+      - coturn
+    restart: unless-stopped
+    networks:
+      - internal
+
+  signaling:
+    build: ./signaling
+    expose:
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - internal
+
+  coturn:
+    image: coturn/coturn:latest
+    user: "0"
+    expose:
+      - "5349"
+    volumes:
+      - ./coturn/turnserver.conf:/etc/turnserver.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    command: ["-c", "/etc/turnserver.conf"]
+    restart: unless-stopped
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge

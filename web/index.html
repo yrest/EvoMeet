@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>EvoMeet</title>
+  <meta name="theme-color" content="#0f0f1a">
+  <meta name="description" content="Private video calls, anywhere">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Join screen -->
+  <div id="join-screen">
+    <div class="logo">EvoMeet</div>
+    <p class="tagline">Private video calls, anywhere</p>
+    <button id="btn-join">Join Call</button>
+    <p id="error-msg"></p>
+  </div>
+
+  <!-- Call screen -->
+  <div id="call-screen">
+    <div id="status-bar">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Connecting…</span>
+    </div>
+
+    <div id="video-grid" data-count="0">
+      <div id="waiting-msg">
+        <span>Waiting for others to join…</span>
+        <small>Share this link: <strong>https://call.personahub.app</strong></small>
+      </div>
+    </div>
+
+    <div id="local-pip">
+      <video id="local-video" autoplay muted playsinline></video>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-mute-audio" title="Mute mic">🎤</button>
+      <button class="ctrl-btn" id="btn-mute-video" title="Turn off camera">📷</button>
+      <button class="ctrl-btn" id="btn-leave" title="Leave call">Leave</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
