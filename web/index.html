@@ -45,6 +45,20 @@
     </div>
   </div>
 
+  <!-- Language switcher — fixed top-right, visible on all screens -->
+  <div id="lang-switcher-wrap">
+    <span aria-hidden="true">🌐</span>
+    <select id="lang-switcher" onchange="setLocale(this.value)" aria-label="Language">
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="de">Deutsch</option>
+      <option value="ru">Русский</option>
+      <option value="pt">Português</option>
+      <option value="fr">Français</option>
+      <option value="pl">Polski</option>
+    </select>
+  </div>
+
   <script src="/i18n.js"></script>
   <script src="/app.js"></script>
   <script>

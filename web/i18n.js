@@ -145,22 +145,34 @@
     },
   };
 
-  // Detect browser language, fall back to English
+  // Resolve initial locale: saved preference → browser language → English
   const browserLang = ((navigator.languages && navigator.languages[0]) || navigator.language || 'en')
     .slice(0, 2).toLowerCase();
-  const locale = SUPPORTED.includes(browserLang) ? browserLang : 'en';
-  const lang = TRANSLATIONS[locale];
+  const saved = typeof localStorage !== 'undefined' && localStorage.getItem('evomeet-lang');
+  let locale = (saved && SUPPORTED.includes(saved)) ? saved
+             : SUPPORTED.includes(browserLang) ? browserLang
+             : 'en';
 
   // Set HTML lang attribute for accessibility
   document.documentElement.lang = locale;
 
-  // Global translation function
+  // Global translation function — reads current locale dynamically
   window.t = function (key, ...args) {
-    const val = lang[key] !== undefined ? lang[key] : TRANSLATIONS.en[key];
+    const dict = TRANSLATIONS[locale];
+    const val = (dict && dict[key] !== undefined) ? dict[key] : TRANSLATIONS.en[key];
     return typeof val === 'function' ? val(...args) : (val !== undefined ? val : key);
   };
 
-  // Apply translations to static DOM elements immediately
+  // Switch locale, persist to localStorage, re-apply all strings
+  window.setLocale = function (code) {
+    if (!SUPPORTED.includes(code)) return;
+    locale = code;
+    document.documentElement.lang = code;
+    try { localStorage.setItem('evomeet-lang', code); } catch (_) {}
+    applyAll();
+  };
+
+  // Apply translations to static DOM elements
   function applyAll() {
     const tagline = document.querySelector('.tagline');
     if (tagline) tagline.textContent = window.t('tagline');
@@ -185,6 +197,10 @@
 
     const btnMuteVideo = document.getElementById('btn-mute-video');
     if (btnMuteVideo) btnMuteVideo.title = window.t('muteVideo');
+
+    // Sync the switcher widget to the active locale
+    const switcher = document.getElementById('lang-switcher');
+    if (switcher) switcher.value = locale;
   }
 
   applyAll();
