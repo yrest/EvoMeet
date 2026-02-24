@@ -249,8 +249,11 @@ function addPeerVideo(peerId, stream) {
     videoGrid.appendChild(tile);
     updateGridLayout();
   } else {
-    tile.querySelector('video').srcObject = stream;
+    video = tile.querySelector('video');
+    video.srcObject = stream;
   }
+  // iOS Safari blocks autoplay on non-muted video; explicit play() required.
+  video.play().catch(() => {});
 }
 
 function removePeerVideo(peerId) {
